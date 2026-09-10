@@ -1,0 +1,77 @@
+openapi: 3.1.0
+info:
+  title: Create Release API
+  version: 1.0.0
+  description: >-
+    Minimal OpenAPI contract for dispatching the GitHub Actions release workflow.
+    GitHub Actions is the execution layer; no always-on server is required.
+servers:
+  - url: https://api.github.com
+paths:
+  /repos/{owner}/{repo}/actions/workflows/create-release.yml/dispatches:
+    post:
+      operationId: createRelease
+      summary: Request a GitHub release
+      description: >-
+        Dispatches the create-release workflow. The workflow creates the release
+        in the target repository and returns its result in the Actions run.
+      security:
+        - githubToken: []
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema: { type: string }
+        - name: repo
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseRequest'
+      responses:
+        '204':
+          description: Workflow dispatch accepted
+        '401': { description: Authentication required }
+        '403': { description: Actions permission denied }
+        '404': { description: Workflow or repository not found }
+        '422': { description: Validation failed }
+components:
+  securitySchemes:
+    githubToken:
+      type: http
+      scheme: bearer
+      bearerFormat: GitHub token
+  schemas:
+    ReleaseRequest:
+      type: object
+      required: [ref, inputs]
+      properties:
+        ref:
+          type: string
+          description: Branch or tag containing the release workflow.
+          example: main
+        inputs:
+          type: object
+          required: [tag_name]
+          properties:
+            tag_name:
+              type: string
+              example: v1.0.0
+            name:
+              type: string
+              example: v1.0.0
+            body:
+              type: string
+            prerelease:
+              type: string
+              enum: ["true", "false"]
+            draft:
+              type: string
+              enum: ["true", "false"]
+            generate_release_notes:
+              type: string
+              enum: ["true", "false"]
