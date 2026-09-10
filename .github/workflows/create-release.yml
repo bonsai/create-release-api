@@ -8,9 +8,13 @@ on:
         required: true
         type: string
       tag_name:
-        description: Release tag
+        description: Release tag (vMAJOR.MINOR.PATCH[-prerelease])
         required: true
         type: string
+      release:
+        description: Explicitly confirm this is a releaseable product/artifact
+        required: true
+        type: boolean
       name:
         description: Release name
         required: false
@@ -41,6 +45,29 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Validate release request
+        env:
+          TARGET_REPO: ${{ inputs.target_repo }}
+          TAG_NAME: ${{ inputs.tag_name }}
+          RELEASE_CONFIRMED: ${{ inputs.release }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_CONFIRMED" != "true" ]]; then
+            echo "Not a release: explicit release confirmation is required." >&2
+            exit 1
+          fi
+          if [[ ! "$TARGET_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "Invalid target_repo: $TARGET_REPO" >&2
+            exit 1
+          fi
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: $TAG_NAME" >&2
+            echo "Expected vMAJOR.MINOR.PATCH[-prerelease]" >&2
+            exit 1
+          fi
+          echo "Release approved: $TARGET_REPO@$TAG_NAME"
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -54,6 +81,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "RELEASE_TOKEN secret is not configured." >&2
+            exit 1
+          fi
           payload=$(jq -n \
             --arg tag "$TAG_NAME" \
             --arg name "$RELEASE_NAME" \
@@ -62,12 +93,10 @@ jobs:
             --argjson draft "$DRAFT" \
             --argjson notes "$GENERATE_NOTES" \
             '{tag_name:$tag, name:$name, body:$body, prerelease:$prerelease, draft:$draft, generate_release_notes:$notes}')
-
           response=$(curl -fsSL -X POST \
             -H 'Accept: application/vnd.github+json' \
             -H 'X-GitHub-Api-Version: 2026-03-10' \
             -H "Authorization: Bearer $GH_TOKEN" \
             "https://api.github.com/repos/$TARGET_REPO/releases" \
             -d "$payload")
-
           echo "$response" | jq '{id, tag_name, name, html_url, draft, prerelease}'
