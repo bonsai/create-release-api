@@ -1,0 +1,34 @@
+version: 1
+
+# A release is a user-consumable, versioned output of a repository.
+# A commit, issue, PR, branch, or source-only change is not a release by itself.
+release:
+  required:
+    - intentional: true
+    - tag: semver
+    - artifact_or_product: true
+  tag:
+    pattern: '^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$'
+  examples:
+    - browser-extension
+    - cli
+    - library
+    - deployable-web-app
+    - dataset-snapshot
+    - packaged-template
+
+non_release:
+  examples:
+    - source-only-commit
+    - documentation-only
+    - issue
+    - pull-request
+    - workflow-change
+    - test-only
+    - internal-config
+    - draft-work
+
+rule: >-
+  Create a GitHub Release only when the change is an intentional, versioned,
+  user-consumable artifact or product. Everything else remains a commit,
+  pull request, tag, artifact, or workflow result without a Release.
